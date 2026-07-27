@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ROAD Control Room</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --bg:#0b0d12;
+      --panel:#11141b;
+      --panel-2:#171b25;
+      --panel-3:#1d2230;
+      --line:#2a3040;
+      --text:#f4f6fb;
+      --muted:#9aa3b5;
+      --purple:#8b5cf6;
+      --purple-2:#6d4aff;
+      --blue:#3b82f6;
+      --cyan:#4cc9f0;
+      --green:#22c55e;
+      --red:#ef4444;
+      --yellow:#f59e0b;
+      --shadow:0 18px 50px rgba(0,0,0,.28);
+      --radius:20px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      min-height:100vh;
+      font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 85% 10%, rgba(59,130,246,.12), transparent 28%),
+        radial-gradient(circle at 12% 90%, rgba(139,92,246,.12), transparent 30%),
+        var(--bg);
+    }
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .hidden{display:none!important}
+    .login-shell{
+      min-height:100vh; display:grid; place-items:center; padding:24px;
+    }
+    .login-card{
+      width:min(440px,100%);
+      background:rgba(17,20,27,.95);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:34px;
+      backdrop-filter:blur(18px);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px; margin-bottom:26px;
+    }
+    .brand-mark{
+      width:42px; height:42px; border-radius:14px;
+      background:linear-gradient(135deg,var(--purple),var(--blue));
+      display:grid; place-items:center; font-weight:800; box-shadow:0 10px 30px rgba(109,74,255,.35);
+    }
+    .brand h1{font-size:20px; margin:0}
+    .brand p{font-size:13px; color:var(--muted); margin:3px 0 0}
+    label{display:block; color:var(--muted); font-size:13px; margin:14px 0 7px}
+    input,select,textarea{
+      width:100%;
+      background:#0e1118;
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:13px;
+      padding:12px 14px;
+      outline:none;
+    }
+    textarea{min-height:92px; resize:vertical}
+    input:focus,select:focus,textarea:focus{border-color:var(--purple)}
+    .primary{
+      width:100%;
+      border:0;
+      color:white;
+      background:linear-gradient(135deg,var(--purple),var(--blue));
+      border-radius:14px;
+      padding:13px 16px;
+      font-weight:700;
+      margin-top:18px;
+    }
+    .message{min-height:20px; margin-top:12px; font-size:13px; color:var(--muted)}
+    .app{
+      min-height:100vh;
+      display:grid;
+      grid-template-columns:260px 1fr;
+    }
+    aside{
+      position:sticky; top:0; height:100vh;
+      background:rgba(13,16,22,.94);
+      border-right:1px solid var(--line);
+      padding:22px 16px;
+      display:flex; flex-direction:column;
+      backdrop-filter:blur(18px);
+    }
+    .aside-brand{padding:4px 8px 18px}
+    .nav{display:grid; gap:6px}
+    .nav button{
+      border:0; background:transparent; color:var(--muted);
+      text-align:left; padding:12px 14px; border-radius:12px;
+      display:flex; gap:10px; align-items:center;
+    }
+    .nav button.active{
+      color:white;
+      background:linear-gradient(90deg,rgba(139,92,246,.22),rgba(59,130,246,.14));
+      border:1px solid rgba(139,92,246,.25);
+    }
+    .quick-bottom{margin-top:auto; display:grid; grid-template-columns:repeat(2,1fr); gap:8px}
+    .quick-bottom a{
+      text-decoration:none; color:var(--text); background:var(--panel-2);
+      border:1px solid var(--line); border-radius:12px; padding:10px;
+      font-size:12px; text-align:center;
+    }
+    .user-line{margin-top:14px; padding:12px 8px 0; border-top:1px solid var(--line); color:var(--muted); font-size:12px}
+    .logout{
+      width:100%; margin-top:8px; padding:10px; border-radius:10px;
+      border:1px solid var(--line); background:transparent; color:var(--muted);
+    }
+    main{padding:28px; min-width:0}
+    .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:22px}
+    .topbar h2{font-size:29px; margin:0 0 6px}
+    .topbar p{margin:0; color:var(--muted)}
+    .date-pill{
+      background:var(--panel); border:1px solid var(--line);
+      border-radius:14px; padding:10px 14px; color:var(--muted); white-space:nowrap;
+    }
+    .grid{display:grid; gap:16px}
+    .grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .grid-2{grid-template-columns:1.25fr .75fr}
+    .card{
+      background:linear-gradient(180deg,rgba(23,27,37,.98),rgba(17,20,27,.98));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:0 12px 34px rgba(0,0,0,.16);
+    }
+    .metric{min-height:116px}
+    .metric span{color:var(--muted); font-size:13px}
+    .metric strong{display:block; font-size:34px; margin-top:12px}
+    .metric small{color:var(--muted)}
+    .section-title{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px}
+    .section-title h3{margin:0; font-size:16px}
+    .ghost{
+      border:1px solid var(--line); background:var(--panel-3); color:var(--text);
+      padding:8px 11px; border-radius:10px;
+    }
+    .task-row,.agenda-row,.link-row{
+      display:flex; gap:12px; align-items:center;
+      padding:12px 0; border-bottom:1px solid rgba(42,48,64,.7);
+    }
+    .task-row:last-child,.agenda-row:last-child,.link-row:last-child{border-bottom:0}
+    .task-row.completed .task-title{text-decoration:line-through;color:var(--muted)}
+    .task-check{width:18px;height:18px}
+    .task-content,.agenda-content,.link-content{flex:1;min-width:0}
+    .task-title,.agenda-title,.link-title{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .task-meta,.agenda-meta,.link-meta{font-size:12px;color:var(--muted);margin-top:4px}
+    .badge{
+      display:inline-flex; align-items:center; border-radius:999px;
+      padding:5px 9px; font-size:11px; border:1px solid var(--line); color:var(--muted)
+    }
+    .priority-urgente{color:#fecaca;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.1)}
+    .priority-alta{color:#fde68a;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.1)}
+    .empty{color:var(--muted); text-align:center; padding:22px 8px}
+    .shortcut-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .shortcut{
+      text-decoration:none;color:var(--text);background:var(--panel-3);
+      border:1px solid var(--line);border-radius:15px;padding:14px;display:block
+    }
+    .shortcut strong{display:block;margin-top:8px}
+    .shortcut small{color:var(--muted)}
+    .page{display:none}
+    .page.active{display:block}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+    .toolbar-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .danger{color:#fecaca}
+    .modal-backdrop{
+      position:fixed;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center;
+      padding:20px;z-index:50;
+    }
+    .modal{
+      width:min(560px,100%);max-height:90vh;overflow:auto;
+      background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:22px;
+      box-shadow:var(--shadow);
+    }
+    .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .modal-head h3{margin:0}
+    .modal-head button{background:transparent;border:0;color:var(--muted);font-size:20px}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+    .form-actions button{padding:10px 14px;border-radius:11px}
+    .save{border:0;color:white;background:linear-gradient(135deg,var(--purple),var(--blue))}
+    .cancel{border:1px solid var(--line);background:transparent;color:var(--muted)}
+    .icon-btn{border:0;background:transparent;color:var(--muted);padding:5px}
+    .calendar-list{display:grid;gap:10px}
+    .agenda-row{
+      background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:14px
+    }
+    .agenda-dot{width:10px;height:10px;border-radius:50%;background:linear-gradient(135deg,var(--purple),var(--blue))}
+    @media (max-width:1050px){
+      .grid-4{grid-template-columns:repeat(2,1fr)}
+      .grid-2{grid-template-columns:1fr}
+    }
+    @media (max-width:760px){
+      .app{grid-template-columns:1fr}
+      aside{
+        position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;z-index:40;
+        border-right:0;border-top:1px solid var(--line);padding:8px 10px
+      }
+      .aside-brand,.quick-bottom,.user-line,.logout{display:none}
+      .nav{grid-template-columns:repeat(5,1fr);gap:4px}
+      .nav button{font-size:11px;padding:9px 4px;display:grid;place-items:center;text-align:center}
+      main{padding:20px 16px 92px}
+      .topbar{display:block}
+      .date-pill{display:inline-block;margin-top:12px}
+      .grid-4{grid-template-columns:1fr 1fr}
+      .form-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<div id="loginView" class="login-shell">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-mark">R</div>
+      <div>
+        <h1>ROAD Control Room</h1>
+        <p>Sua central de produção</p>
+      </div>
+    </div>
+    <form id="loginForm">
+      <label for="email">E-mail</label>
+      <input id="email" type="email" value="thais@road.ag" required />
+      <label for="password">Senha</label>
+      <input id="password" type="password" required />
+      <button class="primary" type="submit">Entrar</button>
+      <div id="loginMessage" class="message"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="app hidden">
+  <aside>
+    <div class="aside-brand brand">
+      <div class="brand-mark">R</div>
+      <div>
+        <h1>ROAD</h1>
+        <p>Control Room</p>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="active" data-page="hoje">◈ <span>Hoje</span></button>
+      <button data-page="agenda">◷ <span>Agenda</span></button>
+      <button data-page="tarefas">✓ <span>Tarefas</span></button>
+      <button data-page="centrais">⌘ <span>Centrais</span></button>
+      <button data-page="arquivos">▣ <span>Arquivos</span></button>
+    </nav>
+
+    <div class="quick-bottom">
+      <a href="https://mail.google.com" target="_blank">Gmail</a>
+      <a href="https://drive.google.com" target="_blank">Drive</a>
+      <a href="https://web.whatsapp.com" target="_blank">WhatsApp</a>
+      <a href="https://discord.com/app" target="_blank">Discord</a>
+    </div>
+
+    <div id="userEmail" class="user-line"></div>
+    <button id="logoutBtn" class="logout">Sair</button>
+  </aside>
+
+  <main>
+    <section id="page-hoje" class="page active">
+      <div class="topbar">
+        <div>
+          <h2 id="greeting">Boa noite, Thais</h2>
+          <p>Seu dia de produção, sem caça ao tesouro digital.</p>
+        </div>
+        <div id="todayLabel" class="date-pill"></div>
+      </div>
+
+      <div class="grid grid-4">
+        <div class="card metric"><span>Tarefas de hoje</span><strong id="metricTasks">0</strong><small>pendentes</small></div>
+        <div class="card metric"><span>Compromissos</span><strong id="metricAgenda">0</strong><small>hoje</small></div>
+        <div class="card metric"><span>Urgentes</span><strong id="metricUrgent">0</strong><small>pedem atenção</small></div>
+        <div class="card metric"><span>Atalhos</span><strong id="metricLinks">4</strong><small>centrais principais</small></div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="section-title"><h3>Checklist de hoje</h3><button class="ghost" onclick="openTaskModal()">+ tarefa</button></div>
+          <div id="todayTasks"></div>
+        </div>
+        <div class="card">
+          <div class="section-title"><h3>Agenda de hoje</h3><button class="ghost" onclick="openAgendaModal()">+ evento</button></div>
+          <div id="todayAgenda"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="section-title"><h3>Acesso rápido</h3></div>
+        <div class="shortcut-grid">
+          <a class="shortcut" target="_blank" href="https://central-producao-brasileiras.fernandestata1204.chatgpt.site"><span>🎬</span><strong>Produção Brasileiras</strong><small>Quadros e conteúdos</small></a>
+          <a class="shortcut" target="_blank" href="https://thais-fm.github.io/Influenciadores-Brasileiras/"><span>✨</span><strong>Influenciadores</strong><small>Mailing e campanhas</small></a>
+          <a class="shortcut" target="_blank" href="https://thais-fm.github.io/Or-amento-CBF/"><span>💸</span><strong>Orçamento Brasileiras</strong><small>Custos e prioridades</small></a>
+          <a class="shortcut" target="_blank" href="https://thais-fm.github.io/ProducaoRoad/"><span>⚙️</span><strong>Produção Road</strong><small>Captações e briefings</small></a>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-agenda" class="page">
+      <div class="toolbar">
+        <div><h2>Agenda</h2><p style="color:var(--muted)">Jogos, reuniões, captações e entregas.</p></div>
+        <button class="ghost" onclick="openAgendaModal()">+ novo evento</button>
+      </div>
+      <div class="card"><div id="agendaList" class="calendar-list"></div></div>
+    </section>
+
+    <section id="page-tarefas" class="page">
+      <div class="toolbar">
+        <div><h2>Tarefas</h2><p style="color:var(--muted)">Seu radar diário de produção.</p></div>
+        <button class="ghost" onclick="openTaskModal()">+ nova tarefa</button>
+      </div>
+      <div class="card"><div id="tasksList"></div></div>
+    </section>
+
+    <section id="page-centrais" class="page">
+      <div class="toolbar"><div><h2>Centrais</h2><p style="color:var(--muted)">Todos os seus sistemas em uma única pista.</p></div></div>
+      <div class="grid grid-2">
+        <a class="shortcut" target="_blank" href="https://central-producao-brasileiras.fernandestata1204.chatgpt.site"><span>🎬</span><strong>Produção de quadros Brasileiras</strong><small>Abrir sistema</small></a>
+        <a class="shortcut" target="_blank" href="https://thais-fm.github.io/Influenciadores-Brasileiras/"><span>✨</span><strong>Mailing de influenciadores</strong><small>Abrir sistema</small></a>
+        <a class="shortcut" target="_blank" href="https://thais-fm.github.io/Or-amento-CBF/"><span>💸</span><strong>Orçamento Brasileiras</strong><small>Abrir sistema</small></a>
+        <a class="shortcut" target="_blank" href="https://thais-fm.github.io/ProducaoRoad/"><span>⚙️</span><strong>Controle de produção Road</strong><small>Abrir sistema</small></a>
+      </div>
+    </section>
+
+    <section id="page-arquivos" class="page">
+      <div class="toolbar">
+        <div><h2>Arquivos</h2><p style="color:var(--muted)">Planilhas, documentos, apresentações e pastas favoritas.</p></div>
+        <button class="ghost" onclick="openLinkModal()">+ novo atalho</button>
+      </div>
+      <div class="card"><div id="linksList"></div></div>
+    </section>
+  </main>
+</div>
+
+<div id="taskModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Nova tarefa</h3><button onclick="closeModal('taskModal')">×</button></div>
+    <form id="taskForm">
+      <label>Título</label><input id="taskTitle" required />
+      <div class="form-grid">
+        <div><label>Data</label><input id="taskDate" type="date" /></div>
+        <div><label>Horário</label><input id="taskTime" type="time" /></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Prioridade</label>
+          <select id="taskPriority"><option value="normal">Normal</option><option value="alta">Alta</option><option value="urgente">Urgente</option><option value="baixa">Baixa</option></select>
+        </div>
+        <div><label>Categoria</label><input id="taskCategory" placeholder="Ex.: aprovação" /></div>
+      </div>
+      <label>Descrição</label><textarea id="taskDescription"></textarea>
+      <div class="form-actions"><button type="button" class="cancel" onclick="closeModal('taskModal')">Cancelar</button><button class="save" type="submit">Salvar</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="agendaModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Novo compromisso</h3><button onclick="closeModal('agendaModal')">×</button></div>
+    <form id="agendaForm">
+      <label>Título</label><input id="agendaTitle" required />
+      <div class="form-grid">
+        <div><label>Tipo</label>
+          <select id="agendaType"><option value="reuniao">Reunião</option><option value="jogo">Jogo</option><option value="captacao">Captação</option><option value="entrega">Entrega</option><option value="viagem">Viagem</option><option value="outro">Outro</option></select>
+        </div>
+        <div><label>Local</label><input id="agendaLocation" /></div>
+      </div>
+      <div class="form-grid">
+        <div><label>Início</label><input id="agendaStart" type="datetime-local" required /></div>
+        <div><label>Fim</label><input id="agendaEnd" type="datetime-local" /></div>
+      </div>
+      <label>Link da reunião</label><input id="agendaLink" type="url" placeholder="https://" />
+      <label>Descrição</label><textarea id="agendaDescription"></textarea>
+      <div class="form-actions"><button type="button" class="cancel" onclick="closeModal('agendaModal')">Cancelar</button><button class="save" type="submit">Salvar</button></div>
+    </form>
+  </div>
+</div>
+
+<div id="linkModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <div class="modal-head"><h3>Novo atalho</h3><button onclick="closeModal('linkModal')">×</button></div>
+    <form id="linkForm">
+      <label>Nome</label><input id="linkTitle" required />
+      <label>URL</label><input id="linkUrl" type="url" required placeholder="https://" />
+      <div class="form-grid">
+        <div><label>Tipo</label>
+          <select id="linkType"><option value="drive">Drive</option><option value="planilha">Planilha</option><option value="documento">Documento</option><option value="apresentacao">Apresentação</option><option value="site">Site</option><option value="outro">Outro</option></select>
+        </div>
+        <div><label>Emoji</label><input id="linkEmoji" placeholder="📁" maxlength="4" /></div>
+      </div>
+      <label>Categoria</label><input id="linkCategory" placeholder="Ex.: CBF, Road, Financeiro" />
+      <div class="form-actions"><button type="button" class="cancel" onclick="closeModal('linkModal')">Cancelar</button><button class="save" type="submit">Salvar</button></div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // COLE AQUI OS DADOS QUE VOCÊ GUARDOU NO SUPABASE
+  // ============================================================
+  const SUPABASE_URL = "https://uunbjfjfnaotrabnddlz.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_-P_E4OgeBeRXzRSU1SP0tw_eKYMC_IX";
+
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentUser = null;
+  let tasks = [];
+  let agenda = [];
+  let links = [];
+
+  const $ = (id) => document.getElementById(id);
+  const localDate = (value) => new Date(value).toLocaleDateString("pt-BR");
+  const localTime = (value) => new Date(value).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+  const todayISO = () => new Date().toISOString().slice(0,10);
+
+  function setGreeting(){
+    const h = new Date().getHours();
+    $("greeting").textContent = `${h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite"}, Thais`;
+    $("todayLabel").textContent = new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  }
+
+  function showApp(user){
+    currentUser = user;
+    $("loginView").classList.add("hidden");
+    $("appView").classList.remove("hidden");
+    $("userEmail").textContent = user.email;
+    setGreeting();
+    loadAll();
+  }
+
+  function showLogin(){
+    currentUser = null;
+    $("appView").classList.add("hidden");
+    $("loginView").classList.remove("hidden");
+  }
+
+  $("loginForm").addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    $("loginMessage").textContent = "Entrando...";
+    const { data, error } = await client.auth.signInWithPassword({
+      email:$("email").value.trim(),
+      password:$("password").value
+    });
+    if(error){
+      $("loginMessage").textContent = "Não foi possível entrar: " + error.message;
+      return;
+    }
+    $("loginMessage").textContent = "";
+    showApp(data.user);
+  });
+
+  $("logoutBtn").addEventListener("click", async ()=>{
+    await client.auth.signOut();
+    showLogin();
+  });
+
+  document.querySelectorAll(".nav button").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".nav button").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+      btn.classList.add("active");
+      $("page-"+btn.dataset.page).classList.add("active");
+    });
+  });
+
+  async function loadAll(){
+    await Promise.all([loadTasks(),loadAgenda(),loadLinks()]);
+    renderAll();
+  }
+
+  async function loadTasks(){
+    const {data,error}=await client.from("tasks").select("*").order("task_date",{ascending:true}).order("due_time",{ascending:true});
+    if(!error) tasks=data||[];
+  }
+
+  async function loadAgenda(){
+    const {data,error}=await client.from("agenda_items").select("*").order("start_at",{ascending:true});
+    if(!error) agenda=data||[];
+  }
+
+  async function loadLinks(){
+    const {data,error}=await client.from("quick_links").select("*").order("position",{ascending:true}).order("created_at",{ascending:true});
+    if(!error) links=data||[];
+  }
+
+  function renderAll(){
+    const today=todayISO();
+    const todayTasks=tasks.filter(t=>t.task_date===today);
+    const pendingToday=todayTasks.filter(t=>!t.completed);
+    const todayAgenda=agenda.filter(a=>a.start_at.slice(0,10)===today);
+    $("metricTasks").textContent=pendingToday.length;
+    $("metricAgenda").textContent=todayAgenda.length;
+    $("metricUrgent").textContent=tasks.filter(t=>!t.completed&&t.priority==="urgente").length;
+    $("metricLinks").textContent=links.length+4;
+
+    renderTasks(todayTasks,$("todayTasks"));
+    renderTasks(tasks,$("tasksList"));
+    renderAgenda(todayAgenda,$("todayAgenda"));
+    renderAgenda(agenda,$("agendaList"));
+    renderLinks();
+  }
+
+  function renderTasks(list,target){
+    if(!list.length){target.innerHTML='<div class="empty">Nenhuma tarefa por aqui.</div>';return}
+    target.innerHTML=list.map(t=>`
+      <div class="task-row ${t.completed?"completed":""}">
+        <input class="task-check" type="checkbox" ${t.completed?"checked":""} onchange="toggleTask('${t.id}',this.checked)">
+        <div class="task-content">
+          <div class="task-title">${escapeHtml(t.title)}</div>
+          <div class="task-meta">${t.task_date?localDate(t.task_date+"T12:00:00"):"Sem data"} ${t.due_time?"• "+t.due_time.slice(0,5):""} ${t.category?"• "+escapeHtml(t.category):""}</div>
+        </div>
+        <span class="badge priority-${t.priority}">${t.priority}</span>
+        <button class="icon-btn danger" onclick="deleteTask('${t.id}')">✕</button>
+      </div>`).join("");
+  }
+
+  function renderAgenda(list,target){
+    if(!list.length){target.innerHTML='<div class="empty">Nenhum compromisso cadastrado.</div>';return}
+    target.innerHTML=list.map(a=>`
+      <div class="agenda-row">
+        <div class="agenda-dot"></div>
+        <div class="agenda-content">
+          <div class="agenda-title">${escapeHtml(a.title)}</div>
+          <div class="agenda-meta">${localDate(a.start_at)} • ${localTime(a.start_at)} • ${escapeHtml(a.item_type)} ${a.location?"• "+escapeHtml(a.location):""}</div>
+        </div>
+        ${a.meeting_link?`<a class="ghost" href="${a.meeting_link}" target="_blank" style="text-decoration:none">abrir</a>`:""}
+        <button class="icon-btn danger" onclick="deleteAgenda('${a.id}')">✕</button>
+      </div>`).join("");
+  }
+
+  function renderLinks(){
+    const target=$("linksList");
+    if(!links.length){target.innerHTML='<div class="empty">Adicione suas planilhas, documentos, apresentações e pastas favoritas.</div>';return}
+    target.innerHTML=links.map(l=>`
+      <div class="link-row">
+        <div style="font-size:22px">${escapeHtml(l.emoji||"🔗")}</div>
+        <div class="link-content">
+          <div class="link-title">${escapeHtml(l.title)}</div>
+          <div class="link-meta">${escapeHtml(l.link_type)} ${l.category?"• "+escapeHtml(l.category):""}</div>
+        </div>
+        <a class="ghost" href="${l.url}" target="_blank" style="text-decoration:none">abrir</a>
+        <button class="icon-btn danger" onclick="deleteLink('${l.id}')">✕</button>
+      </div>`).join("");
+  }
+
+  window.toggleTask=async(id,completed)=>{
+    await client.from("tasks").update({completed,status:completed?"concluida":"pendente"}).eq("id",id);
+    await loadTasks();renderAll();
+  }
+  window.deleteTask=async(id)=>{
+    if(!confirm("Excluir esta tarefa?")) return;
+    await client.from("tasks").delete().eq("id",id);
+    await loadTasks();renderAll();
+  }
+  window.deleteAgenda=async(id)=>{
+    if(!confirm("Excluir este compromisso?")) return;
+    await client.from("agenda_items").delete().eq("id",id);
+    await loadAgenda();renderAll();
+  }
+  window.deleteLink=async(id)=>{
+    if(!confirm("Excluir este atalho?")) return;
+    await client.from("quick_links").delete().eq("id",id);
+    await loadLinks();renderAll();
+  }
+
+  $("taskForm").addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const {error}=await client.from("tasks").insert({
+      user_id:currentUser.id,
+      title:$("taskTitle").value.trim(),
+      description:$("taskDescription").value.trim()||null,
+      task_date:$("taskDate").value||null,
+      due_time:$("taskTime").value||null,
+      priority:$("taskPriority").value,
+      category:$("taskCategory").value.trim()||null
+    });
+    if(error){alert(error.message);return}
+    e.target.reset();closeModal("taskModal");await loadTasks();renderAll();
+  });
+
+  $("agendaForm").addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const start=new Date($("agendaStart").value).toISOString();
+    const end=$("agendaEnd").value?new Date($("agendaEnd").value).toISOString():null;
+    const {error}=await client.from("agenda_items").insert({
+      user_id:currentUser.id,
+      title:$("agendaTitle").value.trim(),
+      item_type:$("agendaType").value,
+      start_at:start,end_at:end,
+      location:$("agendaLocation").value.trim()||null,
+      meeting_link:$("agendaLink").value.trim()||null,
+      description:$("agendaDescription").value.trim()||null
+    });
+    if(error){alert(error.message);return}
+    e.target.reset();closeModal("agendaModal");await loadAgenda();renderAll();
+  });
+
+  $("linkForm").addEventListener("submit",async(e)=>{
+    e.preventDefault();
+    const {error}=await client.from("quick_links").insert({
+      user_id:currentUser.id,
+      title:$("linkTitle").value.trim(),
+      url:$("linkUrl").value.trim(),
+      link_type:$("linkType").value,
+      emoji:$("linkEmoji").value.trim()||"🔗",
+      category:$("linkCategory").value.trim()||null
+    });
+    if(error){alert(error.message);return}
+    e.target.reset();closeModal("linkModal");await loadLinks();renderAll();
+  });
+
+  window.openTaskModal=()=>{
+    $("taskDate").value=todayISO();
+    $("taskModal").classList.remove("hidden");
+  }
+  window.openAgendaModal=()=>{
+    const now=new Date(); now.setMinutes(now.getMinutes()-now.getTimezoneOffset());
+    $("agendaStart").value=now.toISOString().slice(0,16);
+    $("agendaModal").classList.remove("hidden");
+  }
+  window.openLinkModal=()=>$("linkModal").classList.remove("hidden");
+  window.closeModal=(id)=>$(id).classList.add("hidden");
+
+  function escapeHtml(value=""){
+    return String(value).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+  }
+
+  client.auth.getSession().then(({data})=>{
+    if(data.session?.user) showApp(data.session.user);
+    else showLogin();
+  });
+</script>
+</body>
+</html>
