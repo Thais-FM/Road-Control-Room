@@ -158,6 +158,7 @@
     .task-content,.agenda-content,.link-content{flex:1;min-width:0}
     .task-title,.agenda-title,.link-title{font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
     .task-meta,.agenda-meta,.link-meta{font-size:12px;color:var(--muted);margin-top:4px}
+    .task-description{font-size:12px;color:#c7cede;margin-top:7px;line-height:1.45;white-space:pre-wrap}
     .badge{
       display:inline-flex; align-items:center; border-radius:999px;
       padding:5px 9px; font-size:11px; border:1px solid var(--line); color:var(--muted)
@@ -550,8 +551,9 @@
 
 <div id="taskModal" class="modal-backdrop hidden">
   <div class="modal">
-    <div class="modal-head"><h3>Nova tarefa</h3><button onclick="closeModal('taskModal')">×</button></div>
+    <div class="modal-head"><h3 id="taskModalTitle">Nova tarefa</h3><button onclick="closeModal('taskModal')">×</button></div>
     <form id="taskForm">
+      <input id="taskId" type="hidden" />
       <label>Título</label><input id="taskTitle" required />
       <div class="form-grid">
         <div><label>Data</label><input id="taskDate" type="date" /></div>
@@ -631,7 +633,7 @@
   let calendarCursor = new Date();
   calendarCursor.setDate(1);
   let selectedCalendarDate = new Date().toISOString().slice(0,10);
-  
+
   const $ = (id) => document.getElementById(id);
   const localDate = (value) => new Date(value).toLocaleDateString("pt-BR");
   const localTime = (value) => new Date(value).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
@@ -859,9 +861,11 @@
         <div class="task-content">
           <div class="task-title">${escapeHtml(t.title)}</div>
           <div class="task-meta">${t.task_date?localDate(t.task_date+"T12:00:00"):"Sem data"} ${t.due_time?"• "+t.due_time.slice(0,5):""} ${t.category?"• "+escapeHtml(t.category):""}</div>
+          ${t.description?`<div class="task-description">${escapeHtml(t.description)}</div>`:""}
         </div>
         <span class="badge priority-${t.priority}">${t.priority}</span>
-        <button class="icon-btn danger" onclick="deleteTask('${t.id}')">✕</button>
+        <button class="icon-btn" title="Editar tarefa" onclick="openTaskModal('${t.id}')">✎</button>
+        <button class="icon-btn danger" title="Excluir tarefa" onclick="deleteTask('${t.id}')">✕</button>
       </div>`).join("");
   }
 
@@ -1076,17 +1080,32 @@
 
   $("taskForm").addEventListener("submit",async(e)=>{
     e.preventDefault();
-    const {error}=await client.from("tasks").insert({
-      user_id:currentUser.id,
+
+    const taskId=$("taskId").value;
+    const payload={
       title:$("taskTitle").value.trim(),
       description:$("taskDescription").value.trim()||null,
       task_date:$("taskDate").value||null,
       due_time:$("taskTime").value||null,
       priority:$("taskPriority").value,
       category:$("taskCategory").value.trim()||null
-    });
+    };
+
+    let error;
+    if(taskId){
+      ({error}=await client.from("tasks").update(payload).eq("id",taskId));
+    }else{
+      ({error}=await client.from("tasks").insert({
+        user_id:currentUser.id,
+        ...payload
+      }));
+    }
+
     if(error){alert(error.message);return}
-    e.target.reset();closeModal("taskModal");await loadTasks();renderAll();
+    resetTaskForm();
+    closeModal("taskModal");
+    await loadTasks();
+    renderAll();
   });
 
   $("agendaForm").addEventListener("submit",async(e)=>{
@@ -1120,8 +1139,31 @@
     e.target.reset();closeModal("linkModal");await loadLinks();renderAll();
   });
 
-  window.openTaskModal=()=>{
+  function resetTaskForm(){
+    $("taskForm").reset();
+    $("taskId").value="";
+    $("taskModalTitle").textContent="Nova tarefa";
     $("taskDate").value=todayISO();
+    $("taskPriority").value="normal";
+  }
+
+  window.openTaskModal=(id=null)=>{
+    resetTaskForm();
+
+    if(id){
+      const task=tasks.find(item=>item.id===id);
+      if(!task) return;
+
+      $("taskModalTitle").textContent="Editar tarefa";
+      $("taskId").value=task.id;
+      $("taskTitle").value=task.title||"";
+      $("taskDescription").value=task.description||"";
+      $("taskDate").value=task.task_date||"";
+      $("taskTime").value=task.due_time?task.due_time.slice(0,5):"";
+      $("taskPriority").value=task.priority||"normal";
+      $("taskCategory").value=task.category||"";
+    }
+
     $("taskModal").classList.remove("hidden");
   }
   window.openAgendaModal=()=>{
@@ -1130,7 +1172,10 @@
     $("agendaModal").classList.remove("hidden");
   }
   window.openLinkModal=()=>$("linkModal").classList.remove("hidden");
-  window.closeModal=(id)=>$(id).classList.add("hidden");
+  window.closeModal=(id)=>{
+    $(id).classList.add("hidden");
+    if(id==="taskModal") resetTaskForm();
+  };
 
   function escapeHtml(value=""){
     return String(value).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
