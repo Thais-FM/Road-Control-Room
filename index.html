@@ -630,7 +630,7 @@
   let googleTokenExpiresAt = Number(sessionStorage.getItem("road_google_token_expires_at") || 0);
   let calendarCursor = new Date();
   calendarCursor.setDate(1);
-  let selectedCalendarDate = todayISO();
+  let selectedCalendarDate = new Date().toISOString().slice(0,10);
 
   const $ = (id) => document.getElementById(id);
   const localDate = (value) => new Date(value).toLocaleDateString("pt-BR");
